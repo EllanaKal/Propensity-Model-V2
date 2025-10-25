@@ -1,0 +1,111 @@
+
+import numpy as np
+import pandas as pd
+import seaborn as sns
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import roc_auc_score, roc_curve, confusion_matrix, classification_report
+import matplotlib.pyplot as plt
+
+corr_data = pd.DataFrame({
+    'Digital_Activity': [1.0, 0.78, 0.62],
+    'Mobile_Logins': [0.78, 1.0, 0.65],
+    'Retention': [0.62, 0.65, 1.0]
+}, index=['Digital_Activity', 'Mobile_Logins', 'Retention'])
+
+sns.heatmap(corr_data, annot=True, cmap='Blues')
+plt.title('Correlation Matrix: Digital Engagement & Retention')
+plt.show()
+
+
+activity_levels = ['Low', 'Medium', 'High']
+retention_rates = [55, 72, 88]
+
+plt.bar(activity_levels, retention_rates)
+plt.title('Retention Rate by Digital Activity Level')
+plt.xlabel('Digital Activity Level')
+plt.ylabel('Retention Rate (%)')
+plt.show()
+
+
+propensity_scores = np.random.beta(a=2, b=5, size=1000)  # simulated model scores
+plt.hist(propensity_scores, bins=20, edgecolor='black')
+plt.title('Distribution of Propensity Scores')
+plt.xlabel('Propensity to Accept Credit Line Offer')
+plt.ylabel('Number of Prospects')
+plt.show()
+
+
+np.random.seed(42)
+n = 1000
+
+data = pd.DataFrame({
+    'digital_activity': np.random.poisson(lam=10, size=n),
+    'mobile_logins': np.random.poisson(lam=8, size=n),
+    'email_opens': np.random.poisson(lam=5, size=n),
+    'age': np.random.randint(21, 65, n),
+    'income': np.random.normal(75000, 15000, n),
+})
+
+# Simulate retention-related behavior
+data['accepted_offer'] = (
+    0.3*data['digital_activity'] +
+    0.4*data['mobile_logins'] +
+    0.2*data['email_opens'] +
+    np.random.normal(0, 3, n)
+) > 10  # threshold to create binary outcome
+
+data['accepted_offer'] = data['accepted_offer'].astype(int)
+
+# --- 3. Split Train/Test ---
+X = data[['digital_activity', 'mobile_logins', 'email_opens', 'age', 'income']]
+y = data['accepted_offer']
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
+
+# --- 4. Train Logistic Regression Model ---
+model = LogisticRegression(max_iter=1000)
+model.fit(X_train, y_train)
+
+# --- 5. Predict Probabilities (Propensity Scores) ---
+y_pred_proba = model.predict_proba(X_test)[:, 1]
+
+# --- 6. Evaluate Model ---
+auc = roc_auc_score(y_test, y_pred_proba)
+print(f"AUC-ROC Score: {auc:.3f}")
+
+# Classification summary
+y_pred = model.predict(X_test)
+print(classification_report(y_test, y_pred))
+
+# ---  Visualizations ---
+# a) ROC Curve
+fpr, tpr, _ = roc_curve(y_test, y_pred_proba)
+plt.plot(fpr, tpr, label=f"AUC = {auc:.2f}")
+plt.plot([0,1],[0,1],'--',color='gray')
+plt.title("ROC Curve - Propensity Model")
+plt.xlabel("False Positive Rate")
+plt.ylabel("True Positive Rate")
+plt.legend()
+plt.show()
+
+# b) Propensity Score Distribution
+sns.histplot(y_pred_proba, bins=20, kde=True)
+plt.title("Distribution of Predicted Propensity Scores")
+plt.xlabel("Propensity to Accept Credit Line Offer")
+plt.ylabel("Count of Prospects")
+plt.show()
+
+# c) Feature Importance (Coefficient Plot)
+coef_df = pd.DataFrame({
+    'Feature': X.columns,
+    'Coefficient': model.coef_[0]
+}).sort_values(by='Coefficient', ascending=False)
+
+sns.barplot(x='Coefficient', y='Feature', data=coef_df)
+plt.title("Feature Importance - Logistic Regression")
+plt.show()
+
+
+
+
